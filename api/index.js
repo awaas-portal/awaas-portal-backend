@@ -21,7 +21,7 @@ const credentials = {
   type: process.env.type,
   project_id: process.env.project_id,
   private_key_id: process.env.private_key_id,
-  private_key: process.env.private_key.replace(/\\n/g, '\n'),
+  private_key: process.env.private_key.replace(/\\n/g, "\n"),
   client_email: process.env.client_email,
   client_id: process.env.client_id,
   auth_uri: process.env.auth_uri,
@@ -139,7 +139,6 @@ const authenticateAdmin = async (req, res, next) => {
   }
 };
 
-
 app.post("/auth/manager/register", authenticateAdmin, async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -203,7 +202,11 @@ app.get("/auth/log", authenticateManager, async (req, res) => {
   try {
     const email = req.user.firebase.identities.email;
     const currentTime = DateTime.now().setZone("Asia/Kolkata").toISO();
-    const previous = await db.collection("login").where("email", "==", email).limit(1).get();
+    const previous = await db
+      .collection("login")
+      .where("email", "==", email)
+      .limit(1)
+      .get();
     if (!previous.docs.length) {
       await db.collection("login").add({ email: email, time: currentTime });
       return res.status(200).json(resp(false, { time: "" }));
@@ -219,79 +222,83 @@ app.get("/auth/log", authenticateManager, async (req, res) => {
 
 // ------------------ Active Applications ---------------- //
 // Add many applications
-app.post("/application/active/create/many", authenticateManager, async (req, res) => {
-  try {
-    // parse applications
-    const { applications } = req.body;
+app.post(
+  "/application/active/create/many",
+  authenticateManager,
+  async (req, res) => {
+    try {
+      // parse applications
+      const { applications } = req.body;
 
-    // get the waiting list numbers
-    const waitingDoc = await getRow(
-      WAITING_COLLECTION,
-      "selector",
-      WAITING_LIST_SELECTOR
-    );
+      // get the waiting list numbers
+      const waitingDoc = await getRow(
+        WAITING_COLLECTION,
+        "selector",
+        WAITING_LIST_SELECTOR
+      );
 
-    // get the serial number
-    const serialDoc = await getRow(
-      WAITING_COLLECTION,
-      "selector",
-      SERIAL_NO_SELECTOR
-    );
+      // get the serial number
+      const serialDoc = await getRow(
+        WAITING_COLLECTION,
+        "selector",
+        SERIAL_NO_SELECTOR
+      );
 
-    // actual waiting list document
-    const waitingList = waitingDoc.docs[0].data();
-    let serialNo = serialDoc.docs[0].data().serial;
-    const modifiedApplications = applications.map((application) => {
-      if (!waitingList[application.rank]) {
-        waitingList[application.rank] = 1;
-      }
-      if (application.initialWaiting && application.initialWaiting !== -1) {
-        waitingList[application.rank] = Math.max(
-          waitingList[application.rank],
-          application["currentWaiting"]
-        );
-        // assign serial number
-        if (application.serialNo && application.serialNo !== -1) {
-          serialNo = Math.max(serialNo, application.serialNo + 1);
-          return application;
-        } else {
-          application.serialNo = serialNo;
-          serialNo += 1;
-          return application;
+      // actual waiting list document
+      const waitingList = waitingDoc.docs[0].data();
+      let serialNo = serialDoc.docs[0].data().serial;
+      const modifiedApplications = applications.map((application) => {
+        if (!waitingList[application.rank]) {
+          waitingList[application.rank] = 1;
         }
-        // serial number logic ends
-      } else {
-        const doc = {
-          ...application,
-          initialWaiting: waitingList[application.rank],
-          currentWaiting: waitingList[application.rank],
-        };
-        waitingList[application.rank] += 1;
-        if (application.serialNo && application.serialNo !== -1) {
-          serialNo = Math.max(serialNo, application.serialNo + 1);
-          return doc;
+        if (application.initialWaiting && application.initialWaiting !== -1) {
+          waitingList[application.rank] = Math.max(
+            waitingList[application.rank],
+            application["currentWaiting"]
+          );
+          // assign serial number
+          if (application.serialNo && application.serialNo !== -1) {
+            serialNo = Math.max(serialNo, application.serialNo + 1);
+            return application;
+          } else {
+            application.serialNo = serialNo;
+            serialNo += 1;
+            return application;
+          }
+          // serial number logic ends
         } else {
-          doc.serialNo = serialNo;
-          serialNo += 1;
-          return doc;
+          const doc = {
+            ...application,
+            initialWaiting: waitingList[application.rank],
+            currentWaiting: waitingList[application.rank],
+          };
+          waitingList[application.rank] += 1;
+          if (application.serialNo && application.serialNo !== -1) {
+            serialNo = Math.max(serialNo, application.serialNo + 1);
+            return doc;
+          } else {
+            doc.serialNo = serialNo;
+            serialNo += 1;
+            return doc;
+          }
         }
-      }
-    });
-    const batch = db.batch();
-    const ids = [];
-    modifiedApplications.forEach((application) => {
-      const ref = db.collection(ACTIVE_APPLICATIONS_COLLECTION).doc();
-      batch.set(ref, application);
-      ids.push(ref.id);
-    });
-    batch.update(waitingDoc.docs[0].ref, waitingList);
-    batch.update(serialDoc.docs[0].ref, { serial: serialNo });
-    await batch.commit();
-    return res.status(201).json(resp(true, ids));
-  } catch (error) {
-    return res.status(500).json(resp(false, error.message));
+      });
+      const batch = db.batch();
+      const ids = [];
+      modifiedApplications.forEach((application) => {
+        const ref = db.collection(ACTIVE_APPLICATIONS_COLLECTION).doc();
+        batch.set(ref, application);
+        ids.push(ref.id);
+      });
+      batch.update(waitingDoc.docs[0].ref, waitingList);
+      batch.update(serialDoc.docs[0].ref, { serial: serialNo });
+      await batch.commit();
+      return res.status(201).json(resp(true, ids));
+    } catch (error) {
+      return res.status(500).json(resp(false, error.message));
+    }
   }
-});
+);
 
 // Read operation?id=123&mobile=
 app.get("/application/active/info", async (req, res) => {
@@ -299,7 +306,11 @@ app.get("/application/active/info", async (req, res) => {
     return res.status(400).json(resp(false, "Invalid request"));
   }
   try {
-    const byPno = await db.collection(ACTIVE_APPLICATIONS_COLLECTION).where("pno", "==", req.query.id).limit(1).get();
+    const byPno = await db
+      .collection(ACTIVE_APPLICATIONS_COLLECTION)
+      .where("pno", "==", req.query.id)
+      .limit(1)
+      .get();
     if (byPno.docs.length) {
       return res
         .status(200)
@@ -369,7 +380,10 @@ app.delete("/application/delete", authenticateAdmin, async (req, res) => {
     activeApplications.docs.forEach((doc) => {
       if (deleteRank === doc.data()["rank"]) {
         const application = doc.data();
-        if (application["currentWaiting"] > deleteApplication.data()["currentWaiting"]) {
+        if (
+          application["currentWaiting"] >
+          deleteApplication.data()["currentWaiting"]
+        ) {
           application["currentWaiting"] -= 1;
           batch.update(doc.ref, application);
         }
@@ -393,91 +407,107 @@ app.delete("/application/delete", authenticateAdmin, async (req, res) => {
 });
 
 // Delete Many Applications
-app.delete("/application/active/delete/many", authenticateAdmin, async (req, res) => {
-  try {
-    const { ids } = req.body;
-    const batch = db.batch();
+app.delete(
+  "/application/active/delete/many",
+  authenticateAdmin,
+  async (req, res) => {
+    try {
+      const { ids } = req.body;
+      const batch = db.batch();
 
-    // get all applications with the given pno
-    const allotedApplications = await db
-      .collection(ACTIVE_APPLICATIONS_COLLECTION)
-      .where(admin.firestore.FieldPath.documentId(), "in", ids)
-      .get();
+      // get all applications with the given pno
+      const allotedApplications = (
+        await Promise.all(
+          Array.from({ length: Math.ceil(ids.length / 30) }, (_, i) =>
+            ids.slice(i * 30, i * 30 + 30)
+          ).map((chunk) =>
+            db
+              .collection(ACTIVE_APPLICATIONS_COLLECTION)
+              .where(admin.firestore.FieldPath.documentId(), "in", chunk)
+              .get()
+          )
+        )
+      ).flat();
 
-    // get the waiting list numbers
-    const waitingDoc = await getRow(
-      WAITING_COLLECTION,
-      "selector",
-      WAITING_LIST_SELECTOR
-    );
-    const waitingList = waitingDoc.docs[0].data();
+      // get the waiting list numbers
+      const waitingDoc = await getRow(
+        WAITING_COLLECTION,
+        "selector",
+        WAITING_LIST_SELECTOR
+      );
+      const waitingList = waitingDoc.docs[0].data();
 
-    // doc to maintain the waiting changes
-    const waitingChanges = {};
-    const currentWaitingDict = {};
-    // find the number of changes and move them to ARCHIVED_APPLICATIONS_COLLECTION
-    const deleteRefs = [];
-    allotedApplications.docs.forEach((doc) => {
-      const application = doc.data();
-      if (!currentWaitingDict[application["rank"]]) {
-        currentWaitingDict[application["rank"]] = [];
-      }
-      currentWaitingDict[application["rank"]].push(application["currentWaiting"]);
-      deleteRefs.push(doc.ref);
-      if (!waitingChanges[application.rank]) {
-        waitingChanges[application.rank] = 0;
-      }
-      waitingChanges[application.rank] += 1;
-    });
-
-    // update the waiting list document
-    Object.keys(waitingChanges).forEach((key) => {
-      waitingList[key] -= waitingChanges[key];
-    });
-
-    batch.update(waitingDoc.docs[0].ref, waitingList);
-
-    // update the waiting list of all pending applications
-    const allActiveApplications = (
-      await getRows(ACTIVE_APPLICATIONS_COLLECTION)
-    ).docs;
-
-    allActiveApplications.filter((application) => !ids.includes(application.id)).forEach((doc) => {
-      const application = doc.data();
-      let change = 0;
-      Object.entries(currentWaitingDict).forEach(([key, value]) => {
-        if (application["rank"] === key) {
-          value.sort();
-          value.forEach(val => {
-            if (val < application["currentWaiting"]) {
-              change += 1;
-            } else {
-              return;
-            }
-          })
+      // doc to maintain the waiting changes
+      const waitingChanges = {};
+      const currentWaitingDict = {};
+      // find the number of changes and move them to ARCHIVED_APPLICATIONS_COLLECTION
+      const deleteRefs = [];
+      allotedApplications.docs.forEach((doc) => {
+        const application = doc.data();
+        if (!currentWaitingDict[application["rank"]]) {
+          currentWaitingDict[application["rank"]] = [];
         }
+        currentWaitingDict[application["rank"]].push(
+          application["currentWaiting"]
+        );
+        deleteRefs.push(doc.ref);
+        if (!waitingChanges[application.rank]) {
+          waitingChanges[application.rank] = 0;
+        }
+        waitingChanges[application.rank] += 1;
       });
-      if (change) {
-        application["currentWaiting"] -= change;
-        batch.update(doc.ref, application);
-      }
-    });
 
-    // commit the transaction
-    deleteRefs.forEach((ref) => {
-      batch.delete(ref);
-    });
-    await batch.commit();
-    res.status(200).json(
-      resp(true, {
-        allotedApplications: ids,
-      })
-    );
-  } catch (e) {
-    console.error("Error in Allotment:", e);
-    res.status(500).json(resp(false, e));
+      // update the waiting list document
+      Object.keys(waitingChanges).forEach((key) => {
+        waitingList[key] -= waitingChanges[key];
+      });
+
+      batch.update(waitingDoc.docs[0].ref, waitingList);
+
+      // update the waiting list of all pending applications
+      const allActiveApplications = (
+        await getRows(ACTIVE_APPLICATIONS_COLLECTION)
+      ).docs;
+
+      allActiveApplications
+        .filter((application) => !ids.includes(application.id))
+        .forEach((doc) => {
+          const application = doc.data();
+          let change = 0;
+          Object.entries(currentWaitingDict).forEach(([key, value]) => {
+            if (application["rank"] === key) {
+              value.sort();
+              value.forEach((val) => {
+                if (val < application["currentWaiting"]) {
+                  change += 1;
+                } else {
+                  return;
+                }
+              });
+            }
+          });
+          if (change) {
+            application["currentWaiting"] -= change;
+            batch.update(doc.ref, application);
+          }
+        });
+
+      // commit the transaction
+      deleteRefs.forEach((ref) => {
+        batch.delete(ref);
+      });
+      await batch.commit();
+      res.status(200).json(
+        resp(true, {
+          allotedApplications: ids,
+        })
+      );
+    } catch (e) {
+      console.error("Error in Allotment:", e);
+      res.status(500).json(resp(false, e));
+    }
   }
-});
+);
 
 // ------------------ Archived Applications ---------------- //
 
@@ -527,21 +557,27 @@ app.get("/application/archive/all", authenticateManager, async (req, res) => {
   }
 });
 
-app.delete("/application/archive/delete/many", authenticateAdmin, async (req, res) => {
-  try {
-    const { ids } = req.body;
-    const batch = db.batch();
-    ids.forEach(async (id) => {
-      const doc = db.collection(ARCHIVED_APPLICATIONS_COLLECTION).doc(id);
-      batch.delete(doc);
-    });
-    await batch.commit();
-    return res.status(200).json(resp(true, "Applications deleted successfully"));
-  } catch (error) {
-    console.error("Error deleting application:", error);
-    return res.status(500).json(resp(false, "Internal Server Error"));
+app.delete(
+  "/application/archive/delete/many",
+  authenticateAdmin,
+  async (req, res) => {
+    try {
+      const { ids } = req.body;
+      const batch = db.batch();
+      ids.forEach(async (id) => {
+        const doc = db.collection(ARCHIVED_APPLICATIONS_COLLECTION).doc(id);
+        batch.delete(doc);
+      });
+      await batch.commit();
+      return res
+        .status(200)
+        .json(resp(true, "Applications deleted successfully"));
+    } catch (error) {
+      console.error("Error deleting application:", error);
+      return res.status(500).json(resp(false, "Internal Server Error"));
+    }
   }
-});
+);
 
 // ------------------ Notices ---------------- //
 
@@ -629,10 +665,18 @@ app.put("/notification/allot", authenticateManager, async (req, res) => {
     const batch = db.batch();
 
     // get all applications with the given pno
-    const allotedApplications = await db
-      .collection(ACTIVE_APPLICATIONS_COLLECTION)
-      .where(admin.firestore.FieldPath.documentId(), "in", ids)
-      .get();
+    const allotedApplications = (
+      await Promise.all(
+        Array.from({ length: Math.ceil(ids.length / 30) }, (_, i) =>
+          ids.slice(i * 30, i * 30 + 30)
+        ).map((chunk) =>
+          db
+            .collection(ACTIVE_APPLICATIONS_COLLECTION)
+            .where(admin.firestore.FieldPath.documentId(), "in", chunk)
+            .get()
+        )
+      )
+    ).flat();
 
     // get the waiting list numbers
     const waitingDoc = await getRow(
@@ -652,7 +696,9 @@ app.put("/notification/allot", authenticateManager, async (req, res) => {
       if (!currentWaitingDict[application["rank"]]) {
         currentWaitingDict[application["rank"]] = [];
       }
-      currentWaitingDict[application["rank"]].push(application["currentWaiting"]);
+      currentWaitingDict[application["rank"]].push(
+        application["currentWaiting"]
+      );
       const ref = db.collection(ARCHIVED_APPLICATIONS_COLLECTION).doc();
       batch.set(ref, application);
       deleteRefs.push(doc.ref);
@@ -674,26 +720,28 @@ app.put("/notification/allot", authenticateManager, async (req, res) => {
       await getRows(ACTIVE_APPLICATIONS_COLLECTION)
     ).docs;
 
-    allActiveApplications.filter((application) => !ids.includes(application.id)).forEach((doc) => {
-      const application = doc.data();
-      let change = 0;
-      Object.entries(currentWaitingDict).forEach(([key, value]) => {
-        if (application["rank"] === key) {
-          value.sort();
-          value.forEach(val => {
-            if (val < application["currentWaiting"]) {
-              change += 1;
-            } else {
-              return;
-            }
-          })
+    allActiveApplications
+      .filter((application) => !ids.includes(application.id))
+      .forEach((doc) => {
+        const application = doc.data();
+        let change = 0;
+        Object.entries(currentWaitingDict).forEach(([key, value]) => {
+          if (application["rank"] === key) {
+            value.sort();
+            value.forEach((val) => {
+              if (val < application["currentWaiting"]) {
+                change += 1;
+              } else {
+                return;
+              }
+            });
+          }
+        });
+        if (change) {
+          application["currentWaiting"] -= change;
+          batch.update(doc.ref, application);
         }
       });
-      if (change) {
-        application["currentWaiting"] -= change;
-        batch.update(doc.ref, application);
-      }
-    });
 
     // commit the transaction
     deleteRefs.forEach((ref) => {
@@ -711,53 +759,59 @@ app.put("/notification/allot", authenticateManager, async (req, res) => {
   }
 });
 
-app.put("/notification/general", authenticateManager, upload.single("file"), async (req, res) => {
-  try {
-    const { nanoid } = await require("nanoid");
-    const file = req.file;
-    if (!file) {
-      return res.status(400).json(resp(false, "Invalid request"));
-    }
-    const body = JSON.parse(req.body["data"]);
+app.put(
+  "/notification/general",
+  authenticateManager,
+  upload.single("file"),
+  async (req, res) => {
+    try {
+      const { nanoid } = await require("nanoid");
+      const file = req.file;
+      if (!file) {
+        return res.status(400).json(resp(false, "Invalid request"));
+      }
+      const body = JSON.parse(req.body["data"]);
 
-    // upload file
-    const uploadFilename = `${file.originalname.split(".")[0]}_${nanoid(5)}.${file.originalname.split(".")[1]
+      // upload file
+      const uploadFilename = `${file.originalname.split(".")[0]}_${nanoid(5)}.${
+        file.originalname.split(".")[1]
       }`;
-    // upload file to storage
-    const bucket = admin.storage().bucket(STORAGE_BUCKET);
-    const uploadFile = bucket.file(uploadFilename);
-    await uploadFile.save(file.buffer, {
-      destination: uploadFilename,
-      metadata: { contentType: file.mimetype },
-    });
-    await uploadFile.makePublic();
-    const istTime = DateTime.now().setZone("Asia/Kolkata");
+      // upload file to storage
+      const bucket = admin.storage().bucket(STORAGE_BUCKET);
+      const uploadFile = bucket.file(uploadFilename);
+      await uploadFile.save(file.buffer, {
+        destination: uploadFilename,
+        metadata: { contentType: file.mimetype },
+      });
+      await uploadFile.makePublic();
+      const istTime = DateTime.now().setZone("Asia/Kolkata");
 
-    const notification = {
-      ...body,
-      name: file.originalname,
-      filename: uploadFilename,
-      url: uploadFile.publicUrl(),
-      releasedOn: istTime.toISO(),
-    };
+      const notification = {
+        ...body,
+        name: file.originalname,
+        filename: uploadFilename,
+        url: uploadFile.publicUrl(),
+        releasedOn: istTime.toISO(),
+      };
 
-    const notificationRef = await db
-      .collection(NOTIFICATIONS_COLLECTION)
-      .add(notification);
+      const notificationRef = await db
+        .collection(NOTIFICATIONS_COLLECTION)
+        .add(notification);
 
-    return res.status(200).json(
-      resp(true, {
-        id: notificationRef.id,
-        ...notification,
-      })
-    );
-  } catch (error) {
-    console.error("Error uploading file:", error);
-    res.status(500).send({ error: "Failed to upload file" });
+      return res.status(200).json(
+        resp(true, {
+          id: notificationRef.id,
+          ...notification,
+        })
+      );
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      res.status(500).send({ error: "Failed to upload file" });
+    }
   }
-});
+);
 
 export const handler = serverless(app);
 // app.listen(3000, () => {
 //   console.log("Server running on port 3000");
-// }); 
+// });
