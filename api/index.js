@@ -409,7 +409,7 @@ app.delete("/application/delete", authenticateAdmin, async (req, res) => {
 // Delete Many Applications
 app.delete(
   "/application/active/delete/many",
-  authenticateAdmin,
+  // authenticateAdmin,
   async (req, res) => {
     try {
       const { ids } = req.body;
@@ -422,10 +422,12 @@ app.delete(
             ids.slice(i * 30, i * 30 + 30)
           ).map(
             async (chunk) =>
-              await db
-                .collection(ACTIVE_APPLICATIONS_COLLECTION)
-                .where(admin.firestore.FieldPath.documentId(), "in", chunk)
-                .get()
+              (
+                await db
+                  .collection(ACTIVE_APPLICATIONS_COLLECTION)
+                  .where(admin.firestore.FieldPath.documentId(), "in", chunk)
+                  .get()
+              ).docs
           )
         )
       ).flat();
@@ -443,7 +445,7 @@ app.delete(
       const currentWaitingDict = {};
       // find the number of changes and move them to ARCHIVED_APPLICATIONS_COLLECTION
       const deleteRefs = [];
-      allotedApplications.docs.forEach((doc) => {
+      allotedApplications.forEach((doc) => {
         const application = doc.data();
         if (!currentWaitingDict[application["rank"]]) {
           currentWaitingDict[application["rank"]] = [];
@@ -672,10 +674,12 @@ app.put("/notification/allot", authenticateManager, async (req, res) => {
           ids.slice(i * 30, i * 30 + 30)
         ).map(
           async (chunk) =>
-            await db
-              .collection(ACTIVE_APPLICATIONS_COLLECTION)
-              .where(admin.firestore.FieldPath.documentId(), "in", chunk)
-              .get()
+            (
+              await db
+                .collection(ACTIVE_APPLICATIONS_COLLECTION)
+                .where(admin.firestore.FieldPath.documentId(), "in", chunk)
+                .get()
+            ).docs
         )
       )
     ).flat();
@@ -693,7 +697,7 @@ app.put("/notification/allot", authenticateManager, async (req, res) => {
     const currentWaitingDict = {};
     // find the number of changes and move them to ARCHIVED_APPLICATIONS_COLLECTION
     const deleteRefs = [];
-    allotedApplications.docs.forEach((doc) => {
+    allotedApplications.forEach((doc) => {
       const application = doc.data();
       if (!currentWaitingDict[application["rank"]]) {
         currentWaitingDict[application["rank"]] = [];
@@ -813,7 +817,7 @@ app.put(
   }
 );
 
-export const handler = serverless(app);
-// app.listen(3000, () => {
-//   console.log("Server running on port 3000");
-// });
+// export const handler = serverless(app);
+app.listen(3000, () => {
+  console.log("Server running on port 3000");
+});
