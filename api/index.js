@@ -420,11 +420,12 @@ app.delete(
         await Promise.all(
           Array.from({ length: Math.ceil(ids.length / 30) }, (_, i) =>
             ids.slice(i * 30, i * 30 + 30)
-          ).map((chunk) =>
-            db
-              .collection(ACTIVE_APPLICATIONS_COLLECTION)
-              .where(admin.firestore.FieldPath.documentId(), "in", chunk)
-              .get()
+          ).map(
+            async (chunk) =>
+              await db
+                .collection(ACTIVE_APPLICATIONS_COLLECTION)
+                .where(admin.firestore.FieldPath.documentId(), "in", chunk)
+                .get()
           )
         )
       ).flat();
@@ -669,11 +670,12 @@ app.put("/notification/allot", authenticateManager, async (req, res) => {
       await Promise.all(
         Array.from({ length: Math.ceil(ids.length / 30) }, (_, i) =>
           ids.slice(i * 30, i * 30 + 30)
-        ).map((chunk) =>
-          db
-            .collection(ACTIVE_APPLICATIONS_COLLECTION)
-            .where(admin.firestore.FieldPath.documentId(), "in", chunk)
-            .get()
+        ).map(
+          async (chunk) =>
+            await db
+              .collection(ACTIVE_APPLICATIONS_COLLECTION)
+              .where(admin.firestore.FieldPath.documentId(), "in", chunk)
+              .get()
         )
       )
     ).flat();
