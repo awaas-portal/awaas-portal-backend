@@ -409,7 +409,7 @@ app.delete("/application/delete", authenticateAdmin, async (req, res) => {
 // Delete Many Applications
 app.delete(
   "/application/active/delete/many",
-  // authenticateAdmin,
+  authenticateAdmin,
   async (req, res) => {
     try {
       const { ids } = req.body;
